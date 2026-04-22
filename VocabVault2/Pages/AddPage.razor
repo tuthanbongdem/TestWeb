@@ -1,0 +1,76 @@
+@inject DataService DS
+@implements IDisposable
+
+<div class="page-header">
+    <h1 class="page-title">Thêm từ vựng</h1>
+    <p class="page-sub">Điền thông tin rồi nhấn Thêm</p>
+</div>
+
+<div class="add-card">
+    <div class="add-form-grid">
+        <div class="afg">
+            <label>Từ tiếng Anh *</label>
+            <input @bind="W.English" placeholder="e.g. Serendipity" />
+        </div>
+        <div class="afg">
+            <label>Phiên âm IPA</label>
+            <input @bind="W.Phonetic" placeholder="e.g. ˌser.ənˈdɪp.ɪ.ti" />
+        </div>
+        <div class="afg">
+            <label>Nghĩa tiếng Việt *</label>
+            <input @bind="W.Vietnamese" placeholder="e.g. Sự tình cờ may mắn" />
+        </div>
+        <div class="afg">
+            <label>Loại từ</label>
+            <select @bind="W.Type">
+                @foreach (WordType wt in Enum.GetValues<WordType>())
+                { <option value="@wt">@wt.Label()</option> }
+            </select>
+        </div>
+        <div class="afg afg-full">
+            <label>Câu ví dụ</label>
+            <textarea @bind="W.Example" rows="2" placeholder="e.g. Finding that old book was pure serendipity."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(Err)) { <p class="err-txt">@Err</p> }
+    <button class="big-btn @(Ok?"btn-ok":"")" @onclick="HandleAdd">@(Ok?"✓ Đã thêm thành công!":"＋ Thêm vào từ điển")</button>
+</div>
+
+<!-- RECENT -->
+@if (DS.Words.Any())
+{
+    <div class="recent-section">
+        <div class="recent-title">Vừa thêm</div>
+        <div class="recent-list">
+            @foreach (var w in DS.Words.Take(5))
+            {
+                <div class="recent-item">
+                    <span class="ri-word">@w.English</span>
+                    <span class="ri-mean">@w.Vietnamese</span>
+                    <span class="type-badge sm" style="color:@w.Type.Color();border-color:@w.Type.Color()20;background:@w.Type.Color()15">@w.Type.Label()</span>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    Word W = new();
+    string Err = "";
+    bool Ok = false;
+    protected override void OnInitialized() => DS.OnChange += StateHasChanged;
+    public void Dispose() => DS.OnChange -= StateHasChanged;
+
+    async Task HandleAdd()
+    {
+        Err = "";
+        if (string.IsNullOrWhiteSpace(W.English) || string.IsNullOrWhiteSpace(W.Vietnamese))
+        { Err = "⚠ Vui lòng nhập từ và nghĩa!"; return; }
+        if (DS.WordExists(W.English)) { Err = "⚠ Từ này đã có trong danh sách!"; return; }
+        await DS.AddWordAsync(W);
+        W = new();
+        Ok = true;
+        await Task.Delay(2000);
+        Ok = false;
+    }
+}
