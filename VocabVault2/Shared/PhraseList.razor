@@ -1,0 +1,83 @@
+@using VocabVault2.Pages
+
+@if (!Phrases.Any())
+{
+    <div class="empty">
+        <div class="empty-ico">🎤</div>
+        <p>Chưa có câu nào phù hợp. Thêm câu mới nhé!</p>
+    </div>
+}
+else
+{
+    <div class="phrase-list">
+        @foreach (var p in Phrases)
+        {
+            var isActive = ActiveId == p.Id;
+            var pId = p.Id;
+            var pEn = p.English;
+
+            <div class="pcard @(isActive ? "pcard-active" : "")">
+                <div class="pcard-header">
+                    <span class="sit-badge sit-@p.Situation.ToLower()">@p.Situation</span>
+                    <div class="pcard-actions">
+                        <SpeakBtn Text="@p.English" />
+                        <button class="icon-btn @(p.Favorite ? "fav-on" : "")" @onclick="() => OnToggleFav.InvokeAsync(pId)">♥</button>
+                        <button class="icon-btn del" @onclick="() => OnDelete.InvokeAsync(pId)">✕</button>
+                    </div>
+                </div>
+
+                <div class="pcard-en">@p.English</div>
+                <div class="pcard-vn">@p.Vietnamese</div>
+
+                @if (!string.IsNullOrEmpty(p.Note))
+                {
+                    <div class="pcard-note"><span class="note-ico">💡</span> @p.Note</div>
+                }
+
+                <div class="pronun-section">
+                    <button class="pronun-trigger @(isActive && RecogState != "idle" ? "active-mic" : "")"
+                            @onclick="() => OnToggleChecker.InvokeAsync((pId, pEn))">
+                        @if (isActive && RecogState == "listening")
+                        {
+                            <span class="mic-pulse">🎙️</span>
+                            <span> Đang nghe... (nhấn để dừng)</span>
+                        }
+                        else if (isActive && RecogState == "processing")
+                        {
+                            <span>⏳ Đang chấm điểm...</span>
+                        }
+                        else
+                        {
+                            <span>🎤 Kiểm tra phát âm</span>
+                        }
+                    </button>
+
+                    @if (isActive && !SpeechSupported)
+                    {
+                        <div class="recog-unsupported">⚠️ Dùng <b>Chrome</b> hoặc <b>Edge</b> để dùng tính năng này!</div>
+                    }
+
+                    @if (isActive && Result != null)
+                    {
+                        <PronunResultCard R="Result" OnSlow="OnSlow" OnFast="OnFast" OnRetry="OnRetry" />
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Phrase> Phrases { get; set; } = new List<Phrase>();
+    [Parameter] public int ActiveId { get; set; }
+    [Parameter] public string RecogState { get; set; } = "idle";
+    [Parameter] public bool SpeechSupported { get; set; } = true;
+    [Parameter] public SpeakingPage.PronunResultData? Result { get; set; }
+
+    [Parameter] public EventCallback<(int, string)> OnToggleChecker { get; set; }
+    [Parameter] public EventCallback<int> OnToggleFav { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+    [Parameter] public EventCallback OnSlow { get; set; }
+    [Parameter] public EventCallback OnFast { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

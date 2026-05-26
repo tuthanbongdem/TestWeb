@@ -1,0 +1,151 @@
+@inject DataService DS
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quiz</h1>
+        <p class="page-sub">Kiểu Quizlet · Lật thẻ · Tự đánh giá</p>
+    </div>
+</div>
+
+@if (!DS.Words.Any())
+{
+    <div class="empty"><div class="empty-ico">📚</div><p>Thêm từ vựng trước khi quiz!</p></div>
+}
+else if (State == "idle")
+{
+    <!-- START SCREEN -->
+    <div class="quiz-start">
+        <div class="qs-icon">⚡</div>
+        <h2 class="qs-title">Sẵn sàng chưa?</h2>
+        <p class="qs-sub">@DS.Words.Count từ · Lật thẻ để xem nghĩa · Tự đánh giá</p>
+        <div class="qs-options">
+            <label class="qs-opt">
+                <input type="checkbox" @bind="OnlyWeak" />
+                <span>Chỉ ôn từ chưa thuộc (mastery &lt; 3)</span>
+            </label>
+        </div>
+        <button class="big-btn" @onclick="StartQuiz">Bắt đầu →</button>
+    </div>
+}
+else if (State == "done")
+{
+    <!-- RESULT -->
+    <div class="quiz-done">
+        <div class="done-icon">🎉</div>
+        <h2 class="done-title">Hoàn thành!</h2>
+        <div class="score-row">
+            <div class="score-box green"><div class="sc-num">@Know</div><div class="sc-lbl">Thuộc</div></div>
+            <div class="score-box yellow"><div class="sc-num">@Unsure</div><div class="sc-lbl">Mơ hồ</div></div>
+            <div class="score-box red"><div class="sc-num">@Nope</div><div class="sc-lbl">Chưa thuộc</div></div>
+        </div>
+        <div class="done-pct">Tỉ lệ thuộc: <b>@(Order.Count > 0 ? (int)((double)Know / Order.Count * 100) : 0)%</b></div>
+        <div class="done-btns">
+            <button class="big-btn" @onclick="StartQuiz">Học lại</button>
+            <button class="big-btn outline" @onclick='()=>{ State="idle"; }'>Thoát</button>
+        </div>
+    </div>
+}
+else
+{
+    var w = DS.Words[Order[Idx]];
+    int pct = (int)((double)Idx / Order.Count * 100);
+
+    <!-- PROGRESS -->
+    <div class="qprog-wrap">
+        <div class="qprog-bar"><div class="qprog-fill" style="width:@pct%"></div></div>
+        <span class="qprog-txt">@(Idx+1) / @Order.Count</span>
+    </div>
+    <div class="mini-score">
+        <span class="ms green">✓ @Know</span>
+        <span class="ms yellow">~ @Unsure</span>
+        <span class="ms red">✕ @Nope</span>
+    </div>
+
+    <!-- FLIP CARD -->
+    <div class="flip-area">
+        <div class="flip-card @(Flipped?"flipped":"")" @onclick="()=>Flipped=true">
+            <!-- FRONT -->
+            <div class="flip-front">
+                <div class="fc-hint">Nhấn để xem nghĩa</div>
+                <div class="fc-word">@w.English</div>
+                @if (!string.IsNullOrEmpty(w.Phonetic))
+                {
+                    <div class="fc-phon">/&nbsp;@w.Phonetic&nbsp;/</div>
+                }
+                <div class="fc-speak">
+                    <SpeakBtn Text="@w.English" CssClass="speak-lg" />
+                </div>
+                <div class="fc-type" style="color:@w.Type.Color()">@w.Type.Label()</div>
+            </div>
+            <!-- BACK -->
+            <div class="flip-back">
+                <div class="fc-hint">Bạn có thuộc không?</div>
+                <div class="fc-word back-word">@w.English</div>
+                @if (!string.IsNullOrEmpty(w.Phonetic))
+                {
+                    <div class="fc-phon">/&nbsp;@w.Phonetic&nbsp;/</div>
+                }
+                <div class="fc-mean">@w.Vietnamese</div>
+                @if (!string.IsNullOrEmpty(w.Example))
+                {
+                    <div class="fc-ex">"@w.Example"</div>
+                }
+                <div class="fc-speak">
+                    <SpeakBtn Text="@w.English" CssClass="speak-lg" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ANSWER BUTTONS (only after flip) -->
+    @if (Flipped)
+    {
+        <div class="ans-btns">
+            <button class="ans-btn ans-nope"   @onclick="()=>Answer(-1)">✕ Chưa thuộc</button>
+            <button class="ans-btn ans-unsure" @onclick="()=>Answer(0)">~ Mơ hồ</button>
+            <button class="ans-btn ans-know"   @onclick="()=>Answer(1)">✓ Thuộc rồi</button>
+        </div>
+    }
+    else
+    {
+        <p class="fc-tap-hint">👆 Nhấn vào thẻ để lật</p>
+    }
+}
+
+@code {
+    string State = "idle";
+    List<int> Order = new();
+    int Idx = 0; bool Flipped = false;
+    int Know = 0, Unsure = 0, Nope = 0;
+    bool OnlyWeak = false;
+
+    protected override void OnInitialized() => DS.OnChange += StateHasChanged;
+    public void Dispose() => DS.OnChange -= StateHasChanged;
+
+    void StartQuiz()
+    {
+        var src = OnlyWeak ? DS.Words.Where(w => w.Mastery < 3).ToList() : DS.Words.ToList();
+        if (!src.Any()) return;
+        var rng = new Random();
+        Order = Enumerable.Range(0, src.Count).OrderBy(_ => rng.Next()).ToList();
+        // remap to actual indices in DS.Words
+        var srcIds = src.Select(w => w.Id).ToList();
+        Order = srcIds.OrderBy(_ => rng.Next())
+                      .Select(id => DS.Words.ToList().FindIndex(w => w.Id == id))
+                      .Where(i => i >= 0).ToList();
+        Idx = 0; Flipped = false; Know = 0; Unsure = 0; Nope = 0;
+        State = "quiz";
+    }
+
+    async Task Answer(int delta)
+    {
+        var w = DS.Words[Order[Idx]];
+        await DS.BumpMasteryAsync(w.Id, delta);
+        if (delta > 0) Know++; else if (delta == 0) Unsure++; else Nope++;
+        Idx++;
+        Flipped = false;
+        if (Idx >= Order.Count) State = "done";
+    }
+}

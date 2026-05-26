@@ -1,0 +1,85 @@
+@using VocabVault2.Pages
+
+<div class="result-card">
+
+    @* ── SCORE HEADER ── *@
+    <div class="result-top">
+        <div class="score-circle @ScoreClass(R.Percent)">
+            <span class="sc-num">@R.Percent</span>
+            <span class="sc-pct">%</span>
+        </div>
+        <div class="result-meta">
+            <div class="result-label">Bạn đã đọc:</div>
+            <div class="result-spoken">"@R.Spoken"</div>
+            <div class="result-grade @ScoreClass(R.Percent)">@ScoreGrade(R.Percent)</div>
+        </div>
+    </div>
+
+    @* ── WORD BREAKDOWN ── *@
+    <div class="wb-title">Phân tích từng từ:</div>
+    <div class="word-breakdown">
+        @foreach (var w in R.WordResults)
+        {
+            <div class="wb-item wb-@w.Status">
+                <span class="wb-target">@w.Target</span>
+                @if (w.Status != "correct")
+                {
+                    <span class="wb-arrow">→</span>
+                    <span class="wb-spoken">@w.Spoken</span>
+                }
+                <span class="wb-badge wb-badge-@w.Status">
+                    @BadgeLabel(w.Status)
+                </span>
+            </div>
+        }
+    </div>
+
+    @* ── FEEDBACK TIPS ── *@
+    @if (R.Feedback.Any())
+    {
+        <div class="feedback-list">
+            @foreach (var fb in R.Feedback)
+            {
+                <div class="fb-item fb-@fb.Type">
+                    <span class="fb-dot"></span>
+                    <span class="fb-msg">@fb.Msg</span>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── ACTIONS ── *@
+    <div class="result-actions">
+        <button class="ra-btn" @onclick="OnSlow">🐢 Nghe chậm</button>
+        <button class="ra-btn" @onclick="OnFast">⚡ Nghe nhanh</button>
+        <button class="ra-btn ra-retry" @onclick="OnRetry">🔄 Thử lại</button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SpeakingPage.PronunResultData R { get; set; } = default!;
+    [Parameter] public EventCallback OnSlow  { get; set; }
+    [Parameter] public EventCallback OnFast  { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+
+    static string ScoreClass(int p) => p >= 85 ? "sc-great" : p >= 55 ? "sc-ok" : "sc-poor";
+
+    static string ScoreGrade(int p) => p switch
+    {
+        >= 95 => "🏆 Xuất sắc!",
+        >= 85 => "🌟 Rất tốt!",
+        >= 70 => "👍 Tốt!",
+        >= 55 => "💪 Khá ổn",
+        >= 40 => "📖 Cần luyện thêm",
+        _     => "🔁 Hãy thử lại"
+    };
+
+    static string BadgeLabel(string status) => status switch
+    {
+        "correct" => "✓",
+        "close"   => "≈",
+        "missing" => "✗ thiếu",
+        "extra"   => "+ thừa",
+        _         => "✗"
+    };
+}
