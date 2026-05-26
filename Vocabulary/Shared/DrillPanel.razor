@@ -1,0 +1,117 @@
+@using Vocabulary.Pages
+
+@if (!Phrases.Any())
+{
+    <div class="empty"><div class="empty-ico">🎤</div><p>Thêm câu trước khi luyện!</p></div>
+}
+else if (DrillIdx >= Phrases.Count)
+{
+    <div class="drill-done">
+        <div class="done-icon">🎉</div>
+        <h2 class="done-title">Hoàn thành @Phrases.Count câu!</h2>
+        <div class="score-row">
+            <div class="score-box green">
+                <div class="sc-num-big" style="color:var(--green)">@DrillCorrect</div>
+                <div class="sc-lbl">Tốt (≥85%)</div>
+            </div>
+            <div class="score-box yellow">
+                <div class="sc-num-big" style="color:var(--yellow)">@DrillClose</div>
+                <div class="sc-lbl">Khá (55–84%)</div>
+            </div>
+            <div class="score-box red">
+                <div class="sc-num-big" style="color:var(--red)">@DrillWrong</div>
+                <div class="sc-lbl">Cần luyện</div>
+            </div>
+        </div>
+        <div class="done-btns">
+            <button class="big-btn" @onclick="OnStart">🔄 Luyện lại</button>
+            <button class="big-btn outline" @onclick="OnGoList">Về danh sách</button>
+        </div>
+    </div>
+}
+else
+{
+    var dp = Phrases[DrillIdx];
+
+    <div class="drill-wrap">
+        <div class="drill-progress">
+            <div class="dp-bar">
+                <div class="dp-fill" style="width:@(DrillIdx * 100 / Phrases.Count)%"></div>
+            </div>
+            <span class="dp-txt">@(DrillIdx + 1) / @Phrases.Count</span>
+        </div>
+
+        <div class="drill-score-bar">
+            <span class="dsb green">✓ @DrillCorrect</span>
+            <span class="dsb yellow">≈ @DrillClose</span>
+            <span class="dsb red">✗ @DrillWrong</span>
+        </div>
+
+        <div class="drill-card">
+            <span class="sit-badge sit-@dp.Situation.ToLower()">@dp.Situation</span>
+            <div class="dc-en">@dp.English</div>
+            <div class="dc-vn">@dp.Vietnamese</div>
+            @if (!string.IsNullOrEmpty(dp.Note))
+            {
+                <div class="dc-note"><span>💡</span> @dp.Note</div>
+            }
+            <div class="dc-actions">
+                <SpeakBtn Text="@dp.English" CssClass="speak-lg" />
+                <button class="ra-btn" @onclick="OnSlow">🐢 Chậm</button>
+            </div>
+        </div>
+
+        @if (!SpeechSupported)
+        {
+            <div class="recog-unsupported">⚠️ Dùng Chrome hoặc Edge để nhận diện giọng nói!</div>
+        }
+        else
+        {
+            <button class="mic-big @(RecogState == "listening" ? "mic-active" : RecogState == "processing" ? "mic-processing" : "")"
+                    @onclick="OnToggleMic">
+                @if (RecogState == "listening")
+                {
+                    <span class="mic-icon">🎙️</span>
+                    <span>Đang nghe... nhấn để dừng</span>
+                }
+                else if (RecogState == "processing")
+                {
+                    <span class="mic-icon">⏳</span>
+                    <span>Đang chấm điểm...</span>
+                }
+                else
+                {
+                    <span class="mic-icon">🎤</span>
+                    <span>Nhấn và đọc câu trên</span>
+                }
+            </button>
+        }
+
+        @if (Result != null)
+        {
+            <PronunResultCard R="Result" OnSlow="OnSlow" OnFast="OnFast" OnRetry="OnRetry" />
+            <div class="drill-next-row">
+                <button class="big-btn ra-next" @onclick="OnNext">Câu tiếp theo →</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<Phrase> Phrases { get; set; } = new();
+    [Parameter] public int DrillIdx { get; set; }
+    [Parameter] public int DrillCorrect { get; set; }
+    [Parameter] public int DrillClose { get; set; }
+    [Parameter] public int DrillWrong { get; set; }
+    [Parameter] public string RecogState { get; set; } = "idle";
+    [Parameter] public bool SpeechSupported { get; set; } = true;
+    [Parameter] public SpeakingPage.PronunResultData? Result { get; set; }
+
+    [Parameter] public EventCallback OnStart { get; set; }
+    [Parameter] public EventCallback OnGoList { get; set; }
+    [Parameter] public EventCallback OnToggleMic { get; set; }
+    [Parameter] public EventCallback OnNext { get; set; }
+    [Parameter] public EventCallback OnSlow { get; set; }
+    [Parameter] public EventCallback OnFast { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

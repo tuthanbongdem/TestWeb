@@ -1,0 +1,76 @@
+is_global = true
+build_property.EnableAotAnalyzer = 
+build_property.EnableSingleFileAnalyzer = 
+build_property.EnableTrimAnalyzer = false
+build_property.IncludeAllContentForSelfExtract = 
+build_property.TargetFramework = net8.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v8.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = 
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = false
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EntryPointFilePath = 
+build_property._SupportedPlatformList = browser
+build_property.RootNamespace = Vocabulary
+build_property.RootNamespace = Vocabulary
+build_property.ProjectDir = D:\CuuThienKiem\Vocabulary\Vocabulary\Vocabulary\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = false
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = D:\CuuThienKiem\Vocabulary\Vocabulary\Vocabulary
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 8.0
+build_property.EnableCodeStyleSeverity = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/App.razor]
+build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Pages/AddPage.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRkUGFnZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Pages/Index.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXgucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Pages/QuizPage.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUXVpelBhZ2UucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Pages/SpeakingPage.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU3BlYWtpbmdQYWdlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Pages/VocabPage.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVm9jYWJQYWdlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Shared/DrillPanel.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXERyaWxsUGFuZWwucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Shared/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1haW5MYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Shared/PhraseList.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFBocmFzZUxpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Shared/PronunResultCard.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFByb251blJlc3VsdENhcmQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/Shared/SpeakBtn.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNwZWFrQnRuLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CuuThienKiem/Vocabulary/Vocabulary/Vocabulary/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 

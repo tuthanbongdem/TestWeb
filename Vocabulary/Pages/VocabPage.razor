@@ -1,0 +1,161 @@
+@inject DataService DS
+@inject IJSRuntime JS
+@implements IDisposable
+
+<!-- ══ EDIT MODAL ══════════════════════════════════════════════════════════ -->
+@if (EditW != null)
+{
+    <div class="modal-backdrop" @onclick="CloseEdit">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <span>✏️ Chỉnh sửa từ</span>
+                <button class="modal-close" @onclick="CloseEdit">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="add-form-grid">
+                    <div class="afg">
+                        <label>Từ tiếng Anh *</label>
+                        <input @bind="EditW.English" placeholder="e.g. Serendipity" />
+                    </div>
+                    <div class="afg">
+                        <label>Phiên âm IPA</label>
+                        <input @bind="EditW.Phonetic" placeholder="e.g. ˌser.ənˈdɪp.ɪ.ti" />
+                    </div>
+                    <div class="afg">
+                        <label>Nghĩa tiếng Việt *</label>
+                        <input @bind="EditW.Vietnamese" placeholder="e.g. Sự tình cờ may mắn" />
+                    </div>
+                    <div class="afg">
+                        <label>Loại từ</label>
+                        <select @bind="EditW.Type">
+                            @foreach (WordType wt in Enum.GetValues<WordType>())
+                            { <option value="@wt">@wt.Label()</option> }
+                        </select>
+                    </div>
+                    <div class="afg afg-full">
+                        <label>Câu ví dụ</label>
+                        <textarea @bind="EditW.Example" rows="2" placeholder="e.g. Finding that old book was pure serendipity."></textarea>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(EditErr)) { <p class="err-txt">@EditErr</p> }
+            </div>
+            <div class="modal-footer">
+                <button class="ghost-btn" @onclick="CloseEdit">Huỷ</button>
+                <button class="big-btn @(EditOk?"btn-ok":"")" @onclick="SaveEdit">
+                    @(EditOk ? "✓ Đã lưu!" : "💾 Lưu thay đổi")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Từ vựng</h1>
+        <p class="page-sub">@DS.Words.Count từ · @DS.Words.Count(w=>w.Mastery>=3) đã thuộc</p>
+    </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+    <input class="search-input" placeholder="🔍  Tìm từ hoặc nghĩa..." @bind="Search" @bind:event="oninput" />
+    <select class="filter-sel" @bind="FType">
+        <option value="">Tất cả</option>
+        @foreach (WordType wt in Enum.GetValues<WordType>())
+        { <option value="@wt">@wt.Label()</option> }
+    </select>
+    <button class="pill-btn @(OnlyFav?"pill-on":"")" @onclick="()=>OnlyFav=!OnlyFav">⭐ Yêu thích</button>
+</div>
+
+<!-- GRID -->
+@{ var list = DS.Words.Where(w =>
+        (string.IsNullOrEmpty(Search) || w.English.Contains(Search, StringComparison.OrdinalIgnoreCase) || w.Vietnamese.Contains(Search, StringComparison.OrdinalIgnoreCase))
+     && (string.IsNullOrEmpty(FType) || w.Type.ToString() == FType)
+     && (!OnlyFav || w.Favorite)).ToList(); }
+
+@if (!list.Any())
+{
+    <div class="empty"><div class="empty-ico">📭</div><p>@(DS.Words.Any() ? "Không tìm thấy từ phù hợp." : "Chưa có từ vựng. Thêm từ mới nhé!")</p></div>
+}
+else
+{
+    <div class="vocab-grid">
+        @foreach (var w in list)
+        {
+            <div class="vcard">
+                <div class="vcard-top">
+                    <span class="type-badge" style="color:@w.Type.Color();border-color:@w.Type.Color()20;background:@w.Type.Color()15">@w.Type.Label()</span>
+                    <div class="vcard-actions">
+                        <SpeakBtn Text="@w.English" />
+                        <button class="icon-btn @(w.Favorite?"fav-on":"")" @onclick="async () => await DS.ToggleWordFavAsync(w.Id)">♥</button>
+                        <button class="icon-btn edit" title="Chỉnh sửa" @onclick="() => OpenEdit(w)">✏</button>
+                        <button class="icon-btn del" @onclick="async () => await DS.DeleteWordAsync(w.Id)">✕</button>
+                    </div>
+                </div>
+                <div class="vcard-word">@w.English</div>
+                @if (!string.IsNullOrEmpty(w.Phonetic))
+                {
+                    <div class="vcard-phon">/&nbsp;@w.Phonetic&nbsp;/</div>
+                }
+                <div class="vcard-mean">@w.Vietnamese</div>
+                @if (!string.IsNullOrEmpty(w.Example))
+                {
+                    <div class="vcard-ex">"@w.Example"</div>
+                }
+                <!-- MASTERY -->
+                <div class="mastery-bar">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        var lv = i;
+                        <button class="mdot @(lv <= w.Mastery ? "mdot-on" : "")"
+                                @onclick="async () => await DS.SetMasteryAsync(w.Id, w.Mastery==lv?lv-1:lv)"></button>
+                    }
+                    <span class="mastery-txt">@MasteryLabel(w.Mastery)</span>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    string Search = "", FType = "";
+    bool OnlyFav = false;
+
+    // ── Edit state ────────────────────────────────────────────────────────────
+    Word? EditW   = null;
+    string EditErr = "";
+    bool   EditOk  = false;
+
+    void OpenEdit(Word w)
+    {
+        // Deep-copy so cancel doesn't mutate the original
+        EditW = new Word
+        {
+            Id = w.Id, English = w.English, Phonetic = w.Phonetic,
+            Vietnamese = w.Vietnamese, Type = w.Type,
+            Example = w.Example, Mastery = w.Mastery, Favorite = w.Favorite,
+            CreatedAt = w.CreatedAt
+        };
+        EditErr = ""; EditOk = false;
+    }
+
+    void CloseEdit() { EditW = null; EditErr = ""; EditOk = false; }
+
+    async Task SaveEdit()
+    {
+        if (EditW == null) return;
+        EditErr = "";
+        if (string.IsNullOrWhiteSpace(EditW.English) || string.IsNullOrWhiteSpace(EditW.Vietnamese))
+        { EditErr = "⚠ Vui lòng nhập từ và nghĩa!"; return; }
+        if (DS.WordExists(EditW.English, EditW.Id))
+        { EditErr = "⚠ Từ này đã tồn tại!"; return; }
+        await DS.UpdateWordFullAsync(EditW);
+        EditOk = true;
+        await Task.Delay(1200);
+        CloseEdit();
+    }
+
+    protected override void OnInitialized() => DS.OnChange += StateHasChanged;
+    public void Dispose() => DS.OnChange -= StateHasChanged;
+    static string MasteryLabel(int m) => m switch { 0 => "Chưa học", 1 or 2 => "Đang học", 3 or 4 => "Khá thuộc", _ => "Thuộc lòng" };
+}

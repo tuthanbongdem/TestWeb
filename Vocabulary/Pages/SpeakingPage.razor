@@ -1,0 +1,274 @@
+@inject DataService DS
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Speaking</h1>
+        <p class="page-sub">Câu mẫu · Đánh giá phát âm · Hướng dẫn sửa lỗi</p>
+    </div>
+    <div class="header-actions">
+        <button class="pill-btn @(Mode == "list" ? "pill-on" : "")" @onclick="GoList">📋 Danh sách</button>
+        <button class="pill-btn @(Mode == "drill" ? "pill-on" : "")" @onclick="StartDrill">🎯 Luyện tập</button>
+    </div>
+</div>
+
+@* ═══════════ LIST MODE ═══════════ *@
+@if (Mode == "list")
+{
+    <div class="filter-bar">
+        <input class="search-input" placeholder="🔍  Tìm câu..." @bind="Search" @bind:event="oninput" />
+        <select class="filter-sel" @bind="FSit">
+            <option value="">Tất cả</option>
+            <option value="Daily">Daily</option>
+            <option value="Meeting">Meeting</option>
+            <option value="Travel">Travel</option>
+            <option value="Other">Other</option>
+        </select>
+        <button class="pill-btn @(OnlyFav ? "pill-on" : "")" @onclick="ToggleFav">⭐ Yêu thích</button>
+    </div>
+
+    <details class="add-phrase-details">
+        <summary class="add-phrase-sum">＋ Thêm câu mới</summary>
+        <div class="add-phrase-form">
+            <div class="apf-row">
+                <div class="apf-group">
+                    <label>Câu tiếng Anh *</label>
+                    <input @bind="NP.English" placeholder="e.g. Could you say that again?" />
+                </div>
+                <div class="apf-group">
+                    <label>Nghĩa tiếng Việt *</label>
+                    <input @bind="NP.Vietnamese" placeholder="e.g. Bạn có thể nói lại không?" />
+                </div>
+                <div class="apf-group">
+                    <label>Tình huống</label>
+                    <select @bind="NP.Situation">
+                        <option value="Daily">Daily</option>
+                        <option value="Meeting">Meeting</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="apf-group">
+                <label>Tip phát âm / Ghi chú</label>
+                <input @bind="NP.Note" placeholder="e.g. Nhấn vào 'again'" />
+            </div>
+            @if (!string.IsNullOrEmpty(AddErr))
+            {
+                <p class="err-txt">@AddErr</p>
+            }
+            <button class="add-phrase-btn @(AddOk ? "btn-ok" : "")" @onclick="HandleAdd">
+                @(AddOk ? "✓ Đã thêm!" : "＋ Thêm câu")
+            </button>
+        </div>
+    </details>
+
+    <PhraseList
+        Phrases="FilteredPhrases"
+        ActiveId="ActiveId"
+        RecogState="RecogState"
+        SpeechSupported="SpeechSupported"
+        Result="Result"
+        OnToggleChecker="HandleToggleChecker"
+        OnToggleFav="HandleToggleFav"
+        OnDelete="HandleDelete"
+        OnEditSave="HandlePhraseEdit"
+        OnSlow="SlowCurrent"
+        OnFast="FastCurrent"
+        OnRetry="RetryCurrent" />
+}
+
+@* ═══════════ DRILL MODE ═══════════ *@
+@if (Mode == "drill")
+{
+    <DrillPanel
+        Phrases="DS.Phrases.ToList()"
+        DrillIdx="DrillIdx"
+        DrillCorrect="DrillCorrect"
+        DrillClose="DrillClose"
+        DrillWrong="DrillWrong"
+        RecogState="RecogState"
+        SpeechSupported="SpeechSupported"
+        Result="Result"
+        OnStart="StartDrill"
+        OnGoList="GoList"
+        OnToggleMic="ToggleDrillMic"
+        OnNext="DrillNext"
+        OnSlow="SlowDrill"
+        OnFast="FastDrill"
+        OnRetry="RetryDrill" />
+}
+
+@code {
+    string Mode = "list";
+    string Search = "", FSit = "";
+    bool OnlyFav = false;
+    int ActiveId = 0;
+    string CurrentTarget = "";
+
+    Phrase NP = new() { Situation = "Daily" };
+    string AddErr = "";
+    bool AddOk = false;
+
+    int DrillIdx = 0, DrillCorrect = 0, DrillClose = 0, DrillWrong = 0;
+    string RecogState = "idle";
+    bool SpeechSupported = true;
+    PronunResultData? Result = null;
+
+    DotNetObjectReference<SpeakingPage>? _ref;
+
+    IReadOnlyList<Phrase> FilteredPhrases => DS.Phrases.Where(p =>
+        (string.IsNullOrEmpty(Search) || p.English.Contains(Search, StringComparison.OrdinalIgnoreCase) || p.Vietnamese.Contains(Search, StringComparison.OrdinalIgnoreCase))
+        && (string.IsNullOrEmpty(FSit) || p.Situation == FSit)
+        && (!OnlyFav || p.Favorite)).ToList();
+
+    protected override void OnInitialized() => DS.OnChange += StateHasChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ref = DotNetObjectReference.Create(this);
+            SpeechSupported = await JS.InvokeAsync<bool>("checkSpeechSupport");
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose() { DS.OnChange -= StateHasChanged; _ref?.Dispose(); }
+
+    void GoList()    { Mode = "list"; ActiveId = 0; }
+    void ToggleFav() { OnlyFav = !OnlyFav; }
+
+    async Task HandleToggleChecker((int id, string text) args) => await ToggleChecker(args.id, args.text);
+    async Task HandleToggleFav(int id) => await DS.TogglePhraseFavAsync(id);
+    async Task HandleDelete(int id)    => await DS.DeletePhraseAsync(id);
+
+    async Task ToggleChecker(int id, string text)
+    {
+        if (ActiveId == id && RecogState == "listening")
+        {
+            await JS.InvokeVoidAsync("stopSpeechRecognition");
+            RecogState = "idle";
+            return;
+        }
+        await StartListening(id, text);
+    }
+
+    async Task StartListening(int id, string text)
+    {
+        if (id >= 0) { ActiveId = id; Result = null; }
+        CurrentTarget = text;
+        RecogState = "listening";
+        StateHasChanged();
+        await JS.InvokeVoidAsync("startSpeechRecognition", _ref, text);
+    }
+
+    async Task SlowCurrent()  => await JS.InvokeVoidAsync("speakText", CurrentTarget, 0.65);
+    async Task FastCurrent()  => await JS.InvokeVoidAsync("speakText", CurrentTarget, 1.0);
+    async Task RetryCurrent() => await StartListening(ActiveId, CurrentTarget);
+
+    void StartDrill()
+    {
+        Mode = "drill"; DrillIdx = 0;
+        DrillCorrect = DrillClose = DrillWrong = 0;
+        Result = null; RecogState = "idle";
+        var phrases = DS.Phrases;
+        if (phrases.Any()) CurrentTarget = phrases[0].English;
+    }
+
+    async Task ToggleDrillMic()
+    {
+        if (RecogState == "listening")
+        {
+            await JS.InvokeVoidAsync("stopSpeechRecognition");
+            RecogState = "idle"; StateHasChanged(); return;
+        }
+        await StartListening(-1, CurrentTarget);
+    }
+
+    void DrillNext()
+    {
+        if (Result != null)
+        {
+            if (Result.Percent >= 85) DrillCorrect++;
+            else if (Result.Percent >= 55) DrillClose++;
+            else DrillWrong++;
+        }
+        DrillIdx++; Result = null; RecogState = "idle";
+        var phrases = DS.Phrases.ToList();
+        if (DrillIdx < phrases.Count) CurrentTarget = phrases[DrillIdx].English;
+    }
+
+    async Task SlowDrill()  => await JS.InvokeVoidAsync("speakText", CurrentTarget, 0.65);
+    async Task FastDrill()  => await JS.InvokeVoidAsync("speakText", CurrentTarget, 1.0);
+    async Task RetryDrill() => await StartListening(-1, CurrentTarget);
+
+    [JSInvokable]
+    public async Task OnRecogResult(string? json, string status)
+    {
+        RecogState = "processing"; StateHasChanged();
+        await Task.Delay(150);
+
+        if (status == "NOT_SUPPORTED") { SpeechSupported = false; RecogState = "idle"; StateHasChanged(); return; }
+        if (string.IsNullOrEmpty(json)) { RecogState = "idle"; StateHasChanged(); return; }
+
+        try
+        {
+            var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var raw = System.Text.Json.JsonSerializer.Deserialize<RawResult>(json, opts);
+            if (raw?.Score != null)
+            {
+                Result = new PronunResultData
+                {
+                    Spoken = raw.Spoken ?? "",
+                    Percent = raw.Score.Percent,
+                    WordResults = raw.Score.WordResults?
+                        .Select(w => new WR { Target = w.Target ?? "", Spoken = w.Spoken ?? "", Status = w.Status ?? "wrong", Sim = w.Sim })
+                        .ToList() ?? new(),
+                    Feedback = raw.Score.Feedback?
+                        .Select(f => new FB { Word = f.Word ?? "", Type = f.Type ?? "ok", Msg = f.Msg ?? "" })
+                        .ToList() ?? new()
+                };
+            }
+        }
+        catch { }
+
+        RecogState = "idle"; StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnRecogEnd()
+    {
+        if (RecogState == "listening") { RecogState = "idle"; StateHasChanged(); }
+    }
+
+    async Task HandlePhraseEdit(Phrase p) => await DS.UpdatePhraseFullAsync(p);
+
+    async Task HandleAdd()
+    {
+        AddErr = "";
+        if (string.IsNullOrWhiteSpace(NP.English) || string.IsNullOrWhiteSpace(NP.Vietnamese))
+        { AddErr = "⚠ Vui lòng nhập câu và nghĩa!"; return; }
+        await DS.AddPhraseAsync(NP);
+        NP = new() { Situation = "Daily" };
+        AddOk = true;
+        await Task.Delay(2000);
+        AddOk = false;
+    }
+
+    public class PronunResultData
+    {
+        public string Spoken { get; set; } = "";
+        public int Percent { get; set; }
+        public List<WR> WordResults { get; set; } = new();
+        public List<FB> Feedback { get; set; } = new();
+    }
+    public class WR { public string Target { get; set; } = ""; public string Spoken { get; set; } = ""; public string Status { get; set; } = ""; public int Sim { get; set; } }
+    public class FB { public string Word { get; set; } = ""; public string Type { get; set; } = ""; public string Msg { get; set; } = ""; }
+
+    class RawResult { public string? Spoken { get; set; } public ScoreD? Score { get; set; } }
+    class ScoreD    { public int Percent { get; set; } public List<RawW>? WordResults { get; set; } public List<RawF>? Feedback { get; set; } }
+    class RawW      { public string? Target { get; set; } public string? Spoken { get; set; } public string? Status { get; set; } public int Sim { get; set; } }
+    class RawF      { public string? Word { get; set; } public string? Type { get; set; } public string? Msg { get; set; } }
+}

@@ -1,0 +1,16 @@
+@inject IJSRuntime JS
+
+<button class="speak-btn @CssClass" @onclick="Speak" title="Nghe phát âm">
+    🔊
+</button>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string CssClass { get; set; } = "";
+
+    async Task Speak()
+    {
+        if (!string.IsNullOrWhiteSpace(Text))
+            await JS.InvokeVoidAsync("speakText", Text);
+    }
+}
