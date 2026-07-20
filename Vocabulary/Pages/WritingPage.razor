@@ -1,0 +1,347 @@
+@inject GeminiService Gemini
+@inject IJSRuntime JS
+
+@if (ShowKeyModal)
+{
+    <div class="modal-backdrop" @onclick="@(() => { if(Gemini.HasKey) ShowKeyModal=false; })">
+        <div class="modal-box" style="max-width:480px" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <span>🔑 Cài đặt Gemini API Key</span>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text2);font-size:13px;margin-bottom:16px;line-height:1.7">
+                    Tính năng Writing dùng <b>Google Gemini</b> (miễn phí).<br/>
+                    Lấy key tại <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                        style="color:var(--accent2)">aistudio.google.com</a> → <b>Get API key</b>.<br/>
+                    Key chỉ lưu trong bộ nhớ trình duyệt, không gửi đi đâu khác.
+                </p>
+                <div class="afg">
+                    <label>Dán API key vào đây</label>
+                    <input type="password" @bind="KeyInput" placeholder="AIza..." />
+                </div>
+                @if (!string.IsNullOrEmpty(KeyErr))
+                { <p class="err-txt" style="margin-top:8px">@KeyErr</p> }
+            </div>
+            <div class="modal-footer">
+                <button class="big-btn" style="width:100%" @onclick="SaveKey">✓ Lưu &amp; tiếp tục</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">✍️ Writing</h1>
+        <p class="page-sub">Gợi ý ý tưởng · Cải thiện đoạn văn · Luyện viết tiếng Anh</p>
+    </div>
+    <button class="ghost-btn" style="align-self:center;font-size:12px" @onclick="@(()=>ShowKeyModal=true)">
+        🔑 @(Gemini.HasKey ? "Đổi API Key" : "Thêm API Key")
+    </button>
+</div>
+
+<div class="wr-tabs">
+    <button class="wr-tab @(Mode=="idea"?"wr-tab-on":"")"    @onclick='@(()=>SetMode("idea"))'>💡 Gợi ý ý tưởng</button>
+    <button class="wr-tab @(Mode=="improve"?"wr-tab-on":"")" @onclick='@(()=>SetMode("improve"))'>🪄 Cải thiện văn</button>
+    <button class="wr-tab @(Mode=="tone"?"wr-tab-on":"")"    @onclick='@(()=>SetMode("tone"))'>🎭 Đổi phong cách</button>
+    <button class="wr-tab @(Mode=="free"?"wr-tab-on":"")"    @onclick='@(()=>SetMode("free"))'>🗣 Hỏi tự do</button>
+</div>
+
+<div class="wr-grid">
+
+    <!-- INPUT PANEL -->
+    <div class="wr-panel">
+
+        @if (Mode == "idea")
+        {
+            <div class="wr-section-label">Chủ đề / Topic</div>
+            <input class="wr-input" @bind="Topic" placeholder="e.g. Social media and mental health..." />
+            <div class="wr-section-label" style="margin-top:14px">Loại bài</div>
+            <div class="wr-pill-group">
+                @foreach (var t in EssayTypes)
+                {
+                    var tt = t;
+                    <button class="pill-btn @(EssayType==tt?"pill-on":"")" @onclick="@(()=>EssayType=tt)">@tt</button>
+                }
+            </div>
+            <div class="wr-section-label" style="margin-top:14px">Độ dài gợi ý</div>
+            <div class="wr-pill-group">
+                @foreach (var l in Lengths)
+                {
+                    var ll = l;
+                    <button class="pill-btn @(Length==ll?"pill-on":"")" @onclick="@(()=>Length=ll)">@ll</button>
+                }
+            </div>
+        }
+
+        @if (Mode == "improve")
+        {
+            <div class="wr-section-label">Dán đoạn văn của bạn vào đây</div>
+            <textarea class="wr-textarea" @bind="UserText" rows="10"
+                      placeholder="Paste your paragraph here..."></textarea>
+            <div class="wr-section-label" style="margin-top:14px">Tập trung sửa</div>
+            <div class="wr-pill-group">
+                @foreach (var f in ImproveFocus)
+                {
+                    var ff = f;
+                    <button class="pill-btn @(Focus==ff?"pill-on":"")" @onclick="@(()=>Focus=ff)">@ff</button>
+                }
+            </div>
+        }
+
+        @if (Mode == "tone")
+        {
+            <div class="wr-section-label">Đoạn văn gốc</div>
+            <textarea class="wr-textarea" @bind="UserText" rows="8"
+                      placeholder="Paste your text here..."></textarea>
+            <div class="wr-section-label" style="margin-top:14px">Chuyển sang phong cách</div>
+            <div class="wr-pill-group">
+                @foreach (var t in Tones)
+                {
+                    var tk = t.Key; var tv = t.Value;
+                    <button class="pill-btn @(Tone==tk?"pill-on":"")" @onclick="@(()=>Tone=tk)">@tv</button>
+                }
+            </div>
+        }
+
+        @if (Mode == "free")
+        {
+            <div class="wr-section-label">Câu hỏi / Yêu cầu</div>
+            <textarea class="wr-textarea" @bind="UserText" rows="6"
+                      placeholder="e.g. How do I write a strong thesis statement?"></textarea>
+        }
+
+        <button class="big-btn wr-go-btn @(Loading?"btn-loading":"")"
+                @onclick="RunAsync" disabled="@Loading">
+            @if (Loading)
+            { <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span> }
+            else
+            { <span>@BtnLabel</span> }
+        </button>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="wr-panel wr-result-panel @(string.IsNullOrEmpty(Result)?"wr-empty":"")">
+        @if (string.IsNullOrEmpty(Result) && !Loading)
+        {
+            <div class="wr-placeholder">
+                <div class="wr-placeholder-ico">✨</div>
+                <p>Kết quả sẽ hiển thị ở đây</p>
+            </div>
+        }
+        else if (Loading)
+        {
+            <div class="wr-placeholder">
+                <div class="wr-thinking"><span></span><span></span><span></span></div>
+                <p style="color:var(--text3);margin-top:16px">Đang suy nghĩ...</p>
+            </div>
+        }
+        else
+        {
+            <div class="wr-result-header">
+                <span class="wr-result-label">@ResultLabel</span>
+                <button class="ghost-btn" style="font-size:12px;padding:.35rem .9rem"
+                        @onclick="CopyResult">@(Copied?"✓ Đã copy":"📋 Copy")</button>
+            </div>
+            <div class="wr-result-body">@((MarkupString)FormatResult(Result))</div>
+        }
+    </div>
+
+</div>
+
+@code {
+    bool   ShowKeyModal = false;
+    string KeyInput     = "";
+    string KeyErr       = "";
+
+    string Mode      = "idea";
+    string Topic     = "";
+    string UserText  = "";
+    string EssayType = "Opinion Essay";
+    string Length    = "Ngắn (~200 từ)";
+    string Focus     = "Tất cả";
+    string Tone      = "formal";
+    string Result    = "";
+    bool   Loading   = false;
+    bool   Copied    = false;
+
+    readonly string[] EssayTypes   = { "Opinion Essay", "Discussion Essay", "Problem-Solution", "Advantages-Disadvantages", "Descriptive", "Narrative" };
+    readonly string[] Lengths      = { "Ngắn (~200 từ)", "Vừa (~350 từ)", "Dài (~500 từ)" };
+    readonly string[] ImproveFocus = { "Tất cả", "Grammar", "Vocabulary", "Coherence", "Conciseness" };
+    readonly Dictionary<string, string> Tones = new()
+    {
+        ["formal"]   = "🏛 Formal",
+        ["casual"]   = "😊 Casual",
+        ["academic"] = "🎓 Academic",
+        ["creative"] = "🎨 Creative",
+        ["business"] = "💼 Business",
+        ["simple"]   = "🧒 Đơn giản"
+    };
+
+    string BtnLabel => Mode switch
+    {
+        "idea"    => "💡 Gợi ý ý tưởng",
+        "improve" => "🪄 Cải thiện đoạn văn",
+        "tone"    => "🎭 Chuyển phong cách",
+        _         => "🚀 Gửi"
+    };
+
+    string ResultLabel => Mode switch
+    {
+        "idea"    => "💡 Ý tưởng gợi ý",
+        "improve" => "🪄 Đoạn văn đã cải thiện",
+        "tone"    => "🎭 Đoạn văn mới",
+        _         => "📝 Kết quả"
+    };
+
+    void SetMode(string m) { Mode = m; Result = ""; Copied = false; }
+
+    void SaveKey()
+    {
+        if (string.IsNullOrWhiteSpace(KeyInput))
+        { KeyErr = "⚠ Vui lòng nhập API key!"; return; }
+        Gemini.SetKey(KeyInput);
+        ShowKeyModal = false;
+        KeyErr = "";
+    }
+
+    protected override void OnInitialized()
+    {
+        if (!Gemini.HasKey) ShowKeyModal = true;
+    }
+
+    async Task RunAsync()
+    {
+        if (!Gemini.HasKey) { ShowKeyModal = true; return; }
+
+        string prompt = Mode switch
+        {
+            "idea"    => BuildIdeaPrompt(),
+            "improve" => BuildImprovePrompt(),
+            "tone"    => BuildTonePrompt(),
+            _         => UserText
+        };
+
+        if (string.IsNullOrWhiteSpace(prompt))
+        { Result = "⚠ Vui lòng nhập nội dung!"; return; }
+
+        Loading = true; Result = ""; Copied = false;
+        Result  = await Gemini.AskAsync(prompt);
+        Loading = false;
+    }
+
+    string BuildIdeaPrompt()
+    {
+        return "You are a helpful English writing coach. Generate a detailed writing plan for the following:\n"
+             + "- Essay type: " + EssayType + "\n"
+             + "- Topic: " + Topic + "\n"
+             + "- Length target: " + Length + "\n\n"
+             + "Please provide in this EXACT format using markdown:\n"
+             + "## 📌 Thesis Statement\n"
+             + "(one clear thesis sentence)\n\n"
+             + "## 🗂 Outline\n"
+             + "**Introduction:** ...\n"
+             + "**Body paragraph 1:** ...\n"
+             + "**Body paragraph 2:** ...\n"
+             + "**Body paragraph 3 (if needed):** ...\n"
+             + "**Conclusion:** ...\n\n"
+             + "## 💡 Key Ideas & Arguments\n"
+             + "- ...\n\n"
+             + "## 📚 Useful Vocabulary\n"
+             + "- word/phrase: meaning/usage\n\n"
+             + "## ✍️ Sample Opening Sentence\n"
+             + "(one strong opening sentence)\n\n"
+             + "Respond in English. Keep it practical and student-friendly.";
+    }
+
+    string BuildImprovePrompt()
+    {
+        return "You are an English writing tutor. Improve the following paragraph.\n"
+             + "Focus: " + Focus + "\n\n"
+             + "Original text:\n"
+             + UserText + "\n\n"
+             + "Please respond in this EXACT format:\n\n"
+             + "## ✅ Improved Version\n"
+             + "(the full improved paragraph)\n\n"
+             + "## 🔍 What Was Fixed\n"
+             + "| Original | Improved | Reason |\n"
+             + "|---|---|---|\n"
+             + "(list each correction as a table row)\n\n"
+             + "## 💎 Vocabulary Upgrades\n"
+             + "- simple word → better word: explanation\n\n"
+             + "## 📊 Score\n"
+             + "- Grammar: X/10\n"
+             + "- Vocabulary: X/10\n"
+             + "- Coherence: X/10\n"
+             + "- Overall: X/10\n\n"
+             + "Keep explanations clear and concise.";
+    }
+
+    string BuildTonePrompt()
+    {
+        return "Rewrite the following text in a " + Tone + " tone/style. Keep the same meaning.\n\n"
+             + "Original:\n"
+             + UserText + "\n\n"
+             + "Please respond in this EXACT format:\n\n"
+             + "## 🎭 Rewritten (" + Tone + ")\n"
+             + "(the rewritten paragraph)\n\n"
+             + "## 📝 Key Changes Made\n"
+             + "- ...\n\n"
+             + "Keep it natural and fluent.";
+    }
+
+    string FormatResult(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        var lines   = text.Split('\n');
+        var sb      = new System.Text.StringBuilder();
+        bool inTable = false;
+        bool firstTr = true;
+
+        foreach (var raw in lines)
+        {
+            var line = raw.TrimEnd();
+
+            if (line.StartsWith("|") && line.EndsWith("|"))
+            {
+                if (!inTable) { sb.Append("<table class='wr-table'>"); inTable = true; firstTr = true; }
+                var cols = line.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                if (cols.All(c => c.Trim().Replace("-","").Length == 0)) continue;
+                var tag = firstTr ? "th" : "td";
+                sb.Append("<tr>");
+                foreach (var c in cols) sb.Append("<" + tag + ">" + InlineMarkdown(c.Trim()) + "</" + tag + ">");
+                sb.Append("</tr>");
+                firstTr = false;
+                continue;
+            }
+            if (inTable) { sb.Append("</table>"); inTable = false; }
+
+            if (line.StartsWith("## "))
+            { sb.Append("<h3 class='wr-h3'>" + InlineMarkdown(line.Substring(3)) + "</h3>"); continue; }
+            if (line.StartsWith("# "))
+            { sb.Append("<h2 class='wr-h2'>" + InlineMarkdown(line.Substring(2)) + "</h2>"); continue; }
+            if (line.StartsWith("- ") || line.StartsWith("* "))
+            { sb.Append("<li>" + InlineMarkdown(line.Substring(2)) + "</li>"); continue; }
+            if (string.IsNullOrWhiteSpace(line))
+            { sb.Append("<br/>"); continue; }
+            sb.Append("<p class='wr-p'>" + InlineMarkdown(line) + "</p>");
+        }
+        if (inTable) sb.Append("</table>");
+        return sb.ToString();
+    }
+
+    string InlineMarkdown(string s)
+    {
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\*(.+?)\*",     "<em>$1</em>");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"`(.+?)`",        "<code class='wr-code'>$1</code>");
+        return s;
+    }
+
+    async Task CopyResult()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", Result);
+        Copied = true;
+        await Task.Delay(2000);
+        Copied = false;
+    }
+}

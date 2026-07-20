@@ -1,0 +1,71 @@
+@inject DataService DS
+
+<div class="today-hero">
+    <div>
+        <span class="eyebrow">KẾ HOẠCH HÔM NAY</span>
+        <h1>Chào bạn, cùng học một chút nhé!</h1>
+        <p>Ôn từ yếu trước, luyện phản xạ sau. Chỉ cần 10 phút mỗi ngày.</p>
+        <div class="today-actions">
+            <button class="big-btn" @onclick='() => Navigate.InvokeAsync("quiz")'>Bắt đầu ôn tập →</button>
+            <button class="ghost-btn" @onclick='() => Navigate.InvokeAsync("add")'>＋ Thêm từ mới</button>
+        </div>
+    </div>
+    <div class="progress-ring" style="--progress:@ProgressDeg.ToString(System.Globalization.CultureInfo.InvariantCulture)deg">
+        <div><strong>@Progress%</strong><span>đã thuộc</span></div>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="study-stat"><span class="stat-icon mint">Aa</span><div><strong>@DS.Words.Count</strong><span>Tổng từ vựng</span></div></div>
+    <div class="study-stat"><span class="stat-icon blue">✓</span><div><strong>@Mastered</strong><span>Đã thuộc</span></div></div>
+    <div class="study-stat"><span class="stat-icon amber">↻</span><div><strong>@Weak.Count</strong><span>Cần ôn lại</span></div></div>
+    <div class="study-stat"><span class="stat-icon purple">♥</span><div><strong>@DS.Words.Count(x => x.Favorite)</strong><span>Yêu thích</span></div></div>
+</div>
+
+<div class="today-grid">
+    <section class="study-panel">
+        <div class="panel-heading">
+            <div><span class="eyebrow">ƯU TIÊN</span><h2>Từ cần ôn hôm nay</h2></div>
+            <button class="text-btn" @onclick='() => Navigate.InvokeAsync("vocab")'>Xem tất cả →</button>
+        </div>
+        @if (!DS.Words.Any())
+        {
+            <div class="today-empty"><span>📚</span><p>Thêm vài từ đầu tiên để bắt đầu hành trình.</p><button class="pill-btn" @onclick='() => Navigate.InvokeAsync("add")'>Thêm từ ngay</button></div>
+        }
+        else if (!Weak.Any())
+        {
+            <div class="today-empty"><span>🎉</span><p>Tuyệt vời! Bạn đã thuộc toàn bộ từ hiện có.</p></div>
+        }
+        else
+        {
+            <div class="review-list">
+                @foreach (var word in Weak.Take(5))
+                {
+                    <div class="review-row">
+                        <div class="review-word"><strong>@word.English</strong><span>@word.Vietnamese</span></div>
+                        <span class="type-badge" style="color:@word.Type.Color();border-color:@word.Type.Color()">@word.Type.Label()</span>
+                        <div class="mini-mastery"><i style="width:@(word.Mastery * 20)%"></i></div>
+                        <button class="review-check" title="Đánh dấu tiến bộ" @onclick="async () => await DS.BumpMasteryAsync(word.Id, 1)">✓</button>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <aside class="study-panel plan-panel">
+        <span class="eyebrow">10 PHÚT MỖI NGÀY</span>
+        <h2>Lộ trình nhanh</h2>
+        <button class="plan-step" @onclick='() => Navigate.InvokeAsync("quiz")'><b>1</b><span><strong>Ôn từ yếu</strong><small>@Weak.Count từ đang chờ</small></span><i>→</i></button>
+        <button class="plan-step" @onclick='() => Navigate.InvokeAsync("speaking")'><b>2</b><span><strong>Luyện phát âm</strong><small>@DS.Phrases.Count mẫu câu</small></span><i>→</i></button>
+        <button class="plan-step" @onclick='() => Navigate.InvokeAsync("writing")'><b>3</b><span><strong>Viết một đoạn ngắn</strong><small>Nhận góp ý từ AI</small></span><i>→</i></button>
+        <p class="plan-tip">Mẹo: nhấn ✓ sau mỗi từ bạn vừa nhớ lại để cập nhật tiến độ.</p>
+    </aside>
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> Navigate { get; set; }
+    int Mastered => DS.Words.Count(w => w.Mastery >= 3);
+    List<Word> Weak => DS.Words.Where(w => w.Mastery < 3).OrderBy(w => w.Mastery).ThenBy(w => w.CreatedAt).ToList();
+    int Progress => DS.Words.Count == 0 ? 0 : (int)Math.Round(Mastered * 100d / DS.Words.Count);
+    double ProgressDeg => Progress * 3.6;
+}

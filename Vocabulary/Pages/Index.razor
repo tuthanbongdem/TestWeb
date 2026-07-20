@@ -2,7 +2,7 @@
 @inject DataService DS
 @implements IDisposable
 
-<PageTitle>VocabVault</PageTitle>
+<PageTitle>Vocabulary</PageTitle>
 
 @if (!_ready)
 {
@@ -17,6 +17,9 @@ else
         <nav class="sidebar">
             <div class="brand">V<span>V</span></div>
             <div class="nav-links">
+                <button class="nav-btn @(Tab=="today"?"active":"")" @onclick='()=>Tab="today"'>
+                    <span class="nav-icon">⌂</span><span class="nav-label">Hôm nay</span>
+                </button>
                 <button class="nav-btn @(Tab=="vocab"?"active":"")"    @onclick='()=>Tab="vocab"'>
                     <span class="nav-icon">📖</span><span class="nav-label">Từ vựng</span>
                 </button>
@@ -25,6 +28,9 @@ else
                 </button>
                 <button class="nav-btn @(Tab=="speaking"?"active":"")" @onclick='()=>Tab="speaking"'>
                     <span class="nav-icon">🎤</span><span class="nav-label">Speaking</span>
+                </button>
+                <button class="nav-btn @(Tab=="writing"?"active":"")"  @onclick='()=>Tab="writing"'>
+                    <span class="nav-icon">✍️</span><span class="nav-label">Writing</span>
                 </button>
                 <button class="nav-btn @(Tab=="add"?"active":"")"      @onclick='()=>Tab="add"'>
                     <span class="nav-icon">＋</span><span class="nav-label">Thêm mới</span>
@@ -37,17 +43,21 @@ else
             </div>
         </nav>
         <main class="content">
+            @if (Tab == "today")    { <TodayPage Navigate="GoTo" /> }
             @if (Tab == "vocab")    { <VocabPage /> }
             @if (Tab == "quiz")     { <QuizPage /> }
             @if (Tab == "speaking") { <SpeakingPage /> }
+            @if (Tab == "writing")  { <WritingPage /> }
             @if (Tab == "add")      { <AddPage /> }
         </main>
     </div>
 }
 
 @code {
-    string Tab = "vocab";
+    string Tab = "today";
     bool _ready = false;
+
+    void GoTo(string tab) => Tab = tab;
 
     protected override void OnInitialized() => DS.OnChange += StateHasChanged;
 

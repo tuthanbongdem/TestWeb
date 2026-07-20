@@ -16,6 +16,13 @@ builder.Services.AddHttpClient<SupabaseService>(client =>
     client.BaseAddress = new Uri(SupabaseConfig.Url);
 });
 
+// HttpClient riêng cho Gemini (Writing feature)
+builder.Services.AddHttpClient<GeminiService>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
 builder.Services.AddScoped<DataService>();
 
 await builder.Build().RunAsync();
