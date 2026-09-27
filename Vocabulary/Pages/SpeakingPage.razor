@@ -224,7 +224,7 @@
                     Spoken = raw.Spoken ?? "",
                     Percent = raw.Score.Percent,
                     WordResults = raw.Score.WordResults?
-                        .Select(w => new WR { Target = w.Target ?? "", Spoken = w.Spoken ?? "", Status = w.Status ?? "wrong", Sim = w.Sim })
+                        .Select(w => new WR { Target = w.Target ?? "", Spoken = w.Spoken ?? "", Status = w.Status ?? "wrong", Sim = w.Sim, Guide = w.Guide })
                         .ToList() ?? new(),
                     Feedback = raw.Score.Feedback?
                         .Select(f => new FB { Word = f.Word ?? "", Type = f.Type ?? "ok", Msg = f.Msg ?? "" })
@@ -264,11 +264,18 @@
         public List<WR> WordResults { get; set; } = new();
         public List<FB> Feedback { get; set; } = new();
     }
-    public class WR { public string Target { get; set; } = ""; public string Spoken { get; set; } = ""; public string Status { get; set; } = ""; public int Sim { get; set; } }
+    public class WR { public string Target { get; set; } = ""; public string Spoken { get; set; } = ""; public string Status { get; set; } = ""; public int Sim { get; set; } public SoundGuide? Guide { get; set; } }
     public class FB { public string Word { get; set; } = ""; public string Type { get; set; } = ""; public string Msg { get; set; } = ""; }
+
+    public class SoundGuide
+    {
+        public string Symbol { get; set; } = "";
+        public string Shape { get; set; } = "";
+        public string Instructions { get; set; } = "";
+    }
 
     class RawResult { public string? Spoken { get; set; } public ScoreD? Score { get; set; } }
     class ScoreD    { public int Percent { get; set; } public List<RawW>? WordResults { get; set; } public List<RawF>? Feedback { get; set; } }
-    class RawW      { public string? Target { get; set; } public string? Spoken { get; set; } public string? Status { get; set; } public int Sim { get; set; } }
+    class RawW      { public string? Target { get; set; } public string? Spoken { get; set; } public string? Status { get; set; } public int Sim { get; set; } public SoundGuide? Guide { get; set; } }
     class RawF      { public string? Word { get; set; } public string? Type { get; set; } public string? Msg { get; set; } }
 }

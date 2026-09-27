@@ -7,8 +7,7 @@ window.speakText = function (text, rate) {
     utt.rate = rate || 0.88;
     utt.pitch = 1;
     const voices = window.speechSynthesis.getVoices();
-    const en = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('google'))
-            || voices.find(v => v.lang.startsWith('en-US'))
+    const en = voices.find(v => v.lang.toLowerCase() === 'en-us')
             || voices.find(v => v.lang.startsWith('en'));
     if (en) utt.voice = en;
     window.speechSynthesis.speak(utt);
@@ -80,30 +79,56 @@ function levenshtein(a, b) {
     return dp[m][n];
 }
 
-// phonetic similarity hints (common Vietnamese-speaker mistakes)
-const PHONETIC_TIPS = {
-    'th': 'Âm "th" đặt lưỡi sát răng cửa, thổi hơi (không phải "d" hay "t")',
-    'v':  'Âm "v" môi trên chạm răng dưới, rung (khác "b")',
-    'r':  'Âm "r" cuộn lưỡi lên, không rung như tiếng Việt',
-    'l':  'Âm "l" cuối từ (final L): lưỡi chạm hàm ếch',
-    'ed': 'Đuôi "-ed": /t/ sau p,k,f,s,ch — /d/ sau âm hữu thanh — /ɪd/ sau t,d',
-    's':  'Đuôi "-s/-es": /s/ sau âm vô thanh — /z/ sau âm hữu thanh',
-    'w':  'Âm "w" môi tròn rồi mở, không phải "u" hay "qu"',
-    'æ':  'Nguyên âm "a" như "cat": miệng mở rộng ngang',
-    'ŋ':  'Âm "-ng" cuối: khoá hầu họng, không bật hơi',
+// These are practice suggestions for sounds known to occur in the target word.
+// SpeechRecognition returns text, not phoneme-level errors, so this does not
+// identify which sound the learner actually produced incorrectly.
+const SOUND_GUIDES = {
+    theta: {
+        symbol: '/θ/', shape: 'tongue-teeth',
+        instructions: 'Đưa đầu lưỡi nhẹ giữa hai hàm răng, thổi hơi đều qua khe răng. Không rung cổ họng; tránh đọc thành /t/ hoặc /s/.'
+    },
+    eth: {
+        symbol: '/ð/', shape: 'tongue-teeth',
+        instructions: 'Đưa đầu lưỡi nhẹ giữa hai hàm răng và đẩy hơi ra. Đặt tay lên cổ để cảm nhận dây thanh rung; tránh đọc thành /d/.'
+    },
+    v: {
+        symbol: '/v/', shape: 'lip-teeth',
+        instructions: 'Để răng trên chạm nhẹ môi dưới, đẩy hơi ra liên tục và cho dây thanh rung. Không mím hai môi như âm /b/.'
+    },
+    w: {
+        symbol: '/w/', shape: 'rounded-lips',
+        instructions: 'Chu môi tròn nhỏ rồi mở nhanh sang nguyên âm tiếp theo. Hai hàm răng không chạm môi dưới như âm /v/.'
+    },
+    r: {
+        symbol: '/ɹ/', shape: 'tongue-raised',
+        instructions: 'Nâng phần trước của lưỡi gần vòm miệng nhưng không chạm vào. Hơi tròn môi và giữ luồng hơi liên tục, không rung đầu lưỡi.'
+    },
+    l: {
+        symbol: '/l/', shape: 'tongue-ridge',
+        instructions: 'Chạm đầu lưỡi vào gờ ngay sau răng trên. Cho hơi đi qua hai bên lưỡi và giữ dây thanh rung.'
+    },
+    ae: {
+        symbol: '/æ/', shape: 'open-wide',
+        instructions: 'Hạ hàm và mở miệng khá rộng theo chiều ngang. Lưỡi đặt thấp, hướng ra trước; âm ngắn, không đọc thành /e/.'
+    }
 };
 
-function getPhoneticTip(word) {
-    const w = word.toLowerCase();
-    if (w.startsWith('th')) return PHONETIC_TIPS['th'];
-    if (/ed$/.test(w)) return PHONETIC_TIPS['ed'];
-    if (/[szes]$/.test(w) && w.length > 2) return PHONETIC_TIPS['s'];
-    if (w.includes('w')) return PHONETIC_TIPS['w'];
-    if (w.includes('r') && !w.startsWith('r')) return PHONETIC_TIPS['r'];
-    if (/ng$/.test(w)) return PHONETIC_TIPS['ŋ'];
-    if (w.startsWith('v')) return PHONETIC_TIPS['v'];
+const VOICED_TH_WORDS = new Set(['the', 'this', 'that', 'these', 'those', 'they', 'them', 'their', 'there', 'then', 'than', 'though', 'thus', 'mother', 'father', 'brother', 'other', 'another', 'weather', 'rather']);
+const VOICELESS_TH_WORDS = new Set(['think', 'thank', 'thanks', 'thing', 'things', 'thought', 'through', 'three', 'thousand', 'theory', 'thesis', 'thrive', 'third', 'thirty', 'thin', 'thick', 'thunder']);
+const AE_WORDS = new Set(['cat', 'bad', 'map', 'apple', 'academic', 'practice']);
+
+window.getPronunciationGuide = function (word) {
+    const w = normalise(word);
+    if (!w || w.includes(' ')) return null;
+    if (VOICED_TH_WORDS.has(w)) return SOUND_GUIDES.eth;
+    if (VOICELESS_TH_WORDS.has(w)) return SOUND_GUIDES.theta;
+    if (/^v[aeiou]/.test(w)) return SOUND_GUIDES.v;
+    if (/^w[aeiou]/.test(w)) return SOUND_GUIDES.w;
+    if (/^r[aeiou]/.test(w)) return SOUND_GUIDES.r;
+    if (/^l[aeiou]/.test(w)) return SOUND_GUIDES.l;
+    if (AE_WORDS.has(w)) return SOUND_GUIDES.ae;
     return null;
-}
+};
 
 function scorePronunciation(spoken, target) {
     const spokenWords  = tokenise(spoken);
@@ -121,7 +146,10 @@ function scorePronunciation(spoken, target) {
         const maxLen = Math.max(sw.length, tw.length) || 1;
         const sim = 1 - dist / maxLen;
         const status = dist === 0 ? 'correct' : sim >= 0.7 ? 'close' : 'wrong';
-        wordResults.push({ target: tw, spoken: sw || '—', status, sim: Math.round(sim * 100) });
+        wordResults.push({
+            target: tw, spoken: sw || '—', status, sim: Math.round(sim * 100),
+            guide: status === 'correct' ? null : window.getPronunciationGuide(tw)
+        });
         if (sw) si++;
     }
 
@@ -150,17 +178,15 @@ function scorePronunciation(spoken, target) {
 
         let msg = '';
         if (r.status === 'close') {
-            msg = `"${r.target}": bạn đọc gần đúng ("${r.spoken}") — chú ý phát âm chính xác hơn.`;
+            msg = `Từ mẫu “${r.target}”: trình duyệt nghe thành “${r.spoken}”. Hãy nghe mẫu rồi thử lại.`;
         } else {
-            msg = `"${r.target}": bạn đọc là "${r.spoken}" — sai, cần luyện lại từ này.`;
+            msg = `Từ mẫu “${r.target}”: Trình duyệt nghe thành “${r.spoken}”. Hãy luyện lại từ này.`;
         }
-        const tip = getPhoneticTip(r.target);
-        if (tip) msg += ' 💡 ' + tip;
         feedback.push({ word: r.target, type: r.status, msg });
     }
 
     if (percent === 100) {
-        feedback.push({ word: '', type: 'perfect', msg: '🎉 Hoàn hảo! Phát âm chuẩn xác toàn bộ câu.' });
+        feedback.push({ word: '', type: 'perfect', msg: '🎉 Trình duyệt đã nhận đúng toàn bộ từ trong câu.' });
     } else if (percent >= 80) {
         feedback.push({ word: '', type: 'good', msg: '👍 Tốt lắm! Chỉ cần tinh chỉnh một vài từ.' });
     } else if (percent >= 50) {

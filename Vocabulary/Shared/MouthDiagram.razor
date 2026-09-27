@@ -1,0 +1,53 @@
+<div class="mouth-diagram">
+    <svg viewBox="0 0 128 94" role="img" aria-label="@Description">
+        @if (Shape == "rounded-lips")
+        {
+            <ellipse class="mouth-lips" cx="64" cy="47" rx="24" ry="35" />
+            <ellipse class="mouth-opening" cx="64" cy="47" rx="11" ry="22" />
+        }
+        else if (Shape == "open-wide")
+        {
+            <ellipse class="mouth-lips" cx="64" cy="47" rx="48" ry="32" />
+            <ellipse class="mouth-opening" cx="64" cy="47" rx="39" ry="23" />
+            <path class="mouth-tongue" d="M37 62 Q64 47 91 62 Q65 72 37 62Z" />
+        }
+        else
+        {
+            <path class="mouth-lips" d="M15 47 Q37 14 64 26 Q91 14 113 47 Q91 80 64 68 Q37 80 15 47Z" />
+            <path class="mouth-opening" d="M22 47 Q64 25 106 47 Q64 69 22 47Z" />
+            <path class="mouth-teeth" d="M28 44 Q64 31 100 44 L100 48 Q64 42 28 48Z" />
+            @if (Shape == "tongue-teeth")
+            {
+                <path class="mouth-tongue" d="M53 52 Q64 36 76 52 L77 59 Q64 64 51 59Z" />
+            }
+            else if (Shape == "lip-teeth")
+            {
+                <path class="mouth-lower-lip" d="M27 58 Q64 38 101 58 Q64 69 27 58Z" />
+            }
+            else if (Shape == "tongue-raised")
+            {
+                <path class="mouth-tongue" d="M38 59 Q67 24 92 57 Q64 50 38 59Z" />
+            }
+            else if (Shape == "tongue-ridge")
+            {
+                <path class="mouth-tongue" d="M36 60 Q56 58 65 37 Q74 49 94 60 Q64 67 36 60Z" />
+            }
+        }
+    </svg>
+    <span>@Description</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Shape { get; set; } = "";
+
+    string Description => Shape switch
+    {
+        "tongue-teeth" => "Lưỡi giữa hai hàm răng",
+        "lip-teeth" => "Răng trên chạm môi dưới",
+        "rounded-lips" => "Chu tròn hai môi",
+        "tongue-raised" => "Lưỡi nâng, không chạm vòm",
+        "tongue-ridge" => "Lưỡi chạm gờ sau răng trên",
+        "open-wide" => "Mở hàm rộng ngang",
+        _ => "Khẩu hình tham khảo"
+    };
+}

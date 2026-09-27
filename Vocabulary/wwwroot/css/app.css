@@ -513,6 +513,27 @@ frames pulse-ring {
 /* WORD BREAKDOWN */
 .wb-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; font-weight: 600; margin-bottom: 8px; }
 .word-breakdown { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.pronunciation-help { border-top: 1px solid var(--border); padding-top: 18px; margin: 18px 0; }
+.pronunciation-help-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 7px; }
+.pronunciation-help-heading h3 { font-size: 17px; line-height: 1.3; }
+.help-count { color: var(--accent); background: rgba(110,231,183,.09); border-radius: 99px; padding: 4px 10px; font-size: 11px; white-space: nowrap; }
+.pronunciation-help-note { color: var(--text3); font-size: 12px; line-height: 1.6; margin-bottom: 13px; }
+.sound-practice-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 13px; padding: 16px; margin-bottom: 11px; }
+.sound-practice-top { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.sound-practice-top strong { font-size: 17px; }
+.sound-symbol { font-family: var(--mono); color: var(--accent2); background: rgba(56,189,248,.1); border-radius: 6px; padding: 2px 7px; font-size: 13px; }
+.sound-practice-body { display: flex; align-items: center; gap: 15px; }
+.sound-practice-body p, .sound-no-guide { color: var(--text2); font-size: 13px; line-height: 1.65; }
+.sound-practice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.sound-practice-actions .ra-btn:disabled { opacity: .45; cursor: not-allowed; }
+.sound-practice-feedback { color: var(--accent2); font-size: 12px; margin-top: 9px; }
+.mouth-diagram { flex: 0 0 116px; text-align: center; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 6px; }
+.mouth-diagram svg { width: 100%; height: 78px; display: block; }
+.mouth-diagram span { color: var(--text3); font-size: 9px; line-height: 1.2; display: block; min-height: 22px; }
+.mouth-lips, .mouth-lower-lip { fill: #d87f87; stroke: #f2adb0; stroke-width: 2; }
+.mouth-opening { fill: #4d2735; }
+.mouth-teeth { fill: #f4f2eb; }
+.mouth-tongue { fill: #f59b9d; stroke: #ffd0c6; stroke-width: 1.5; }
 .wb-item {
   display: flex; align-items: center; gap: 5px;
   padding: 5px 10px; border-radius: 99px; font-size: 13px;
@@ -638,6 +659,7 @@ frames pulse-ring {
 }
 
 @media (max-width: 520px) { .today-hero { align-items: flex-start; }.progress-ring { display: none; }.today-actions { flex-direction: column; }.stat-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .sound-practice-body { align-items: flex-start; }.mouth-diagram { flex-basis: 94px; }.mouth-diagram svg { height: 64px; } }
 
 /* ═══════════════════════════════════════════════════════════
    EDIT MODAL

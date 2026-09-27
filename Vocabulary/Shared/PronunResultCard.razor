@@ -1,4 +1,6 @@
 @using Vocabulary.Pages
+@inject IJSRuntime JS
+@implements IDisposable
 
 <div class="result-card">
 
@@ -9,7 +11,8 @@
             <span class="sc-pct">%</span>
         </div>
         <div class="result-meta">
-            <div class="result-label">Bạn đã đọc:</div>
+            <div class="result-label">Độ khớp với câu mẫu</div>
+            <div class="result-label">Trình duyệt nghe:</div>
             <div class="result-spoken">"@R.Spoken"</div>
             <div class="result-grade @ScoreClass(R.Percent)">@ScoreGrade(R.Percent)</div>
         </div>
@@ -35,6 +38,52 @@
     </div>
 
     @* ── FEEDBACK TIPS ── *@
+    @if (R.WordResults.Any(w => w.Status != "correct" && w.Status != "extra"))
+    {
+        <div class="pronunciation-help">
+            <div class="pronunciation-help-heading">
+                <div>
+                    <div class="wb-title">Luyện khẩu hình</div>
+                    <h3>Thử sửa từng từ</h3>
+                </div>
+                <span class="help-count">@R.WordResults.Count(w => w.Status != "correct" && w.Status != "extra") từ cần luyện</span>
+            </div>
+            <p class="pronunciation-help-note">Đây là gợi ý cho âm có trong từ. Trình duyệt chỉ nhận diện lời nói thành chữ, chưa xác định chính xác âm nào bạn đọc sai.</p>
+
+            @foreach (var word in R.WordResults.Where(w => w.Status != "correct" && w.Status != "extra").Take(5))
+            {
+                <div class="sound-practice-card">
+                    <div class="sound-practice-top">
+                        <strong>@word.Target</strong>
+                        @if (word.Guide != null)
+                        {
+                            <span class="sound-symbol">@word.Guide.Symbol</span>
+                        }
+                    </div>
+                    @if (word.Guide != null)
+                    {
+                        <div class="sound-practice-body">
+                            <MouthDiagram Shape="@word.Guide.Shape" />
+                            <p>@word.Guide.Instructions</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="sound-no-guide">Chưa có hướng dẫn khẩu hình riêng cho từ này. Nghe mẫu chậm rồi thử đọc lại.</p>
+                    }
+                    <div class="sound-practice-actions">
+                        <button class="ra-btn" @onclick="() => ListenWord(word.Target)">🔊 Nghe từ chậm</button>
+                        <button class="ra-btn ra-retry" disabled="@_practiceListening" @onclick="() => PracticeWordAsync(word.Target)">🎙️ Đọc lại từ</button>
+                    </div>
+                    @if (_practiceWord == word.Target && !string.IsNullOrEmpty(_practiceFeedback))
+                    {
+                        <p class="sound-practice-feedback" role="status">@_practiceFeedback</p>
+                    }
+                </div>
+            }
+        </div>
+    }
+
     @if (R.Feedback.Any())
     {
         <div class="feedback-list">
@@ -61,6 +110,66 @@
     [Parameter] public EventCallback OnSlow  { get; set; }
     [Parameter] public EventCallback OnFast  { get; set; }
     [Parameter] public EventCallback OnRetry { get; set; }
+
+    DotNetObjectReference<PronunResultCard>? _practiceRef;
+    string? _practiceWord;
+    string? _practiceFeedback;
+    bool _practiceListening;
+
+    Task ListenWord(string word) => JS.InvokeVoidAsync("speakText", word, 0.65).AsTask();
+
+    async Task PracticeWordAsync(string word)
+    {
+        _practiceWord = word;
+        _practiceFeedback = "Đang nghe bạn đọc...";
+        _practiceListening = true;
+        _practiceRef ??= DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("startSpeechRecognition", _practiceRef, word); }
+        catch
+        {
+            _practiceListening = false;
+            _practiceFeedback = "Không thể mở micro. Hãy kiểm tra quyền truy cập micro rồi thử lại.";
+        }
+    }
+
+    [JSInvokable]
+    public Task OnRecogResult(string? json, string status)
+    {
+        _practiceListening = false;
+        if (status == "NOT_SUPPORTED")
+            _practiceFeedback = "Trình duyệt này chưa hỗ trợ nhận diện giọng nói.";
+        else if (string.IsNullOrWhiteSpace(json))
+            _practiceFeedback = "Không nghe rõ từ bạn đọc. Hãy kiểm tra micro và thử lại.";
+        else
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var spoken = doc.RootElement.GetProperty("spoken").GetString() ?? "";
+                var results = doc.RootElement.GetProperty("score").GetProperty("wordResults");
+                if (results.GetArrayLength() == 0)
+                    _practiceFeedback = "Không nghe rõ từ bạn đọc. Hãy thử lại.";
+                else
+                    _practiceFeedback = results[0].GetProperty("status").GetString() == "correct"
+                        ? $"Trình duyệt nghe được “{spoken}” — khớp từ mẫu."
+                        : $"Trình duyệt nghe được “{spoken}”. Nghe mẫu và thử lại nhé.";
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or KeyNotFoundException or InvalidOperationException)
+            {
+                _practiceFeedback = "Chưa đọc được kết quả. Vui lòng thử lại.";
+            }
+        }
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnRecogEnd()
+    {
+        _practiceListening = false;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => _practiceRef?.Dispose();
 
     static string ScoreClass(int p) => p >= 85 ? "sc-great" : p >= 55 ? "sc-ok" : "sc-poor";
 
