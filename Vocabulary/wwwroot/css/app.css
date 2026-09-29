@@ -408,6 +408,7 @@ textarea { resize: vertical; }
 .add-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .afg { display: flex; flex-direction: column; gap: 6px; }
 .afg label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.type-detect-hint { color: var(--text3); font-size: 11px; line-height: 1.45; }
 .afg-full { grid-column: 1 / -1; }
 
 .recent-section { max-width: 700px; }

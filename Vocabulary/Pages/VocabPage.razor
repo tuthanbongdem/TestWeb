@@ -15,7 +15,7 @@
                 <div class="add-form-grid">
                     <div class="afg">
                         <label>Từ tiếng Anh *</label>
-                        <input @bind="EditW.English" placeholder="e.g. Serendipity" />
+                        <input @bind="EditW.English" @bind:after="DetectEditTypeAsync" placeholder="e.g. Serendipity" />
                     </div>
                     <div class="afg">
                         <label>Phiên âm IPA</label>
@@ -27,10 +27,11 @@
                     </div>
                     <div class="afg">
                         <label>Loại từ</label>
-                        <select @bind="EditW.Type">
+                        <select @bind="EditW.Type" @bind:after="MarkEditTypeManual">
                             @foreach (WordType wt in Enum.GetValues<WordType>())
                             { <option value="@wt">@wt.Label()</option> }
                         </select>
+                        @if (!string.IsNullOrEmpty(EditTypeHint)) { <small class="type-detect-hint">@EditTypeHint</small> }
                     </div>
                     <div class="afg afg-full">
                         <label>Câu ví dụ</label>
@@ -125,6 +126,8 @@ else
     Word? EditW   = null;
     string EditErr = "";
     bool   EditOk  = false;
+    bool EditTypeManuallySelected = false;
+    string EditTypeHint = "";
 
     void OpenEdit(Word w)
     {
@@ -137,9 +140,46 @@ else
             CreatedAt = w.CreatedAt
         };
         EditErr = ""; EditOk = false;
+        EditTypeHint = "Đổi từ tiếng Anh để nhận diện lại; bạn vẫn có thể chọn thủ công.";
+        EditTypeManuallySelected = false;
     }
 
-    void CloseEdit() { EditW = null; EditErr = ""; EditOk = false; }
+    void CloseEdit() { EditW = null; EditErr = ""; EditOk = false; EditTypeHint = ""; }
+
+    async Task DetectEditTypeAsync()
+    {
+        var currentWord = EditW;
+        if (currentWord == null) return;
+        var english = currentWord.English.Trim();
+        EditTypeManuallySelected = false;
+        if (english.Length == 0) { currentWord.Type = WordType.Other; EditTypeHint = ""; return; }
+
+        EditTypeHint = "Đang nhận diện loại từ...";
+        string[] suggestions;
+        try { suggestions = await JS.InvokeAsync<string[]>("lookupWordTypes", english); }
+        catch { suggestions = new[] { nameof(WordType.Other) }; }
+
+        if (!ReferenceEquals(EditW, currentWord) ||
+            !currentWord.English.Trim().Equals(english, StringComparison.OrdinalIgnoreCase) ||
+            EditTypeManuallySelected) return;
+
+        var types = suggestions
+            .Where(s => Enum.TryParse<WordType>(s, out _))
+            .Select(Enum.Parse<WordType>)
+            .Distinct().ToArray();
+        currentWord.Type = types.FirstOrDefault(WordType.Other);
+        EditTypeHint = types.Length > 1
+            ? $"Từ này có thể là {string.Join(" / ", types.Select(t => t.Label()))}. Hãy chọn theo nghĩa bạn muốn học."
+            : currentWord.Type == WordType.Other
+                ? "Chưa nhận diện được. Bạn có thể chọn loại từ thủ công."
+                : $"Đã tự nhận diện: {currentWord.Type.Label()}.";
+    }
+
+    void MarkEditTypeManual()
+    {
+        EditTypeManuallySelected = true;
+        EditTypeHint = "Bạn đã chọn loại từ thủ công.";
+    }
 
     async Task SaveEdit()
     {

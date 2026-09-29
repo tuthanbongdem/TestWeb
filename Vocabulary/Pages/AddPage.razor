@@ -1,4 +1,5 @@
 @inject DataService DS
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="page-header">
@@ -10,7 +11,7 @@
     <div class="add-form-grid">
         <div class="afg">
             <label>Từ tiếng Anh *</label>
-            <input @bind="W.English" placeholder="e.g. Serendipity" />
+            <input @bind="W.English" @bind:after="DetectTypeAsync" placeholder="e.g. Serendipity" />
         </div>
         <div class="afg">
             <label>Phiên âm IPA</label>
@@ -22,10 +23,11 @@
         </div>
         <div class="afg">
             <label>Loại từ</label>
-            <select @bind="W.Type">
+            <select @bind="W.Type" @bind:after="MarkTypeManual">
                 @foreach (WordType wt in Enum.GetValues<WordType>())
                 { <option value="@wt">@wt.Label()</option> }
             </select>
+            @if (!string.IsNullOrEmpty(TypeHint)) { <small class="type-detect-hint">@TypeHint</small> }
         </div>
         <div class="afg afg-full">
             <label>Câu ví dụ</label>
@@ -58,8 +60,44 @@
     Word W = new();
     string Err = "";
     bool Ok = false;
+    bool TypeManuallySelected = false;
+    string TypeHint = "Nhập xong từ tiếng Anh để tự nhận diện; bạn vẫn có thể chọn lại.";
     protected override void OnInitialized() => DS.OnChange += StateHasChanged;
     public void Dispose() => DS.OnChange -= StateHasChanged;
+
+    async Task DetectTypeAsync()
+    {
+        var currentWord = W;
+        var english = W.English.Trim();
+        TypeManuallySelected = false;
+        if (english.Length == 0) { W.Type = WordType.Other; TypeHint = ""; return; }
+
+        TypeHint = "Đang nhận diện loại từ...";
+        string[] suggestions;
+        try { suggestions = await JS.InvokeAsync<string[]>("lookupWordTypes", english); }
+        catch { suggestions = new[] { nameof(WordType.Other) }; }
+
+        if (!ReferenceEquals(W, currentWord) ||
+            !W.English.Trim().Equals(english, StringComparison.OrdinalIgnoreCase) ||
+            TypeManuallySelected) return;
+
+        var types = suggestions
+            .Where(s => Enum.TryParse<WordType>(s, out _))
+            .Select(Enum.Parse<WordType>)
+            .Distinct().ToArray();
+        W.Type = types.FirstOrDefault(WordType.Other);
+        TypeHint = types.Length > 1
+            ? $"Từ này có thể là {string.Join(" / ", types.Select(t => t.Label()))}. Hãy chọn theo nghĩa bạn muốn học."
+            : W.Type == WordType.Other
+                ? "Chưa nhận diện được. Bạn có thể chọn loại từ thủ công."
+                : $"Đã tự nhận diện: {W.Type.Label()}.";
+    }
+
+    void MarkTypeManual()
+    {
+        TypeManuallySelected = true;
+        TypeHint = "Bạn đã chọn loại từ thủ công.";
+    }
 
     async Task HandleAdd()
     {
@@ -69,6 +107,8 @@
         if (DS.WordExists(W.English)) { Err = "⚠ Từ này đã có trong danh sách!"; return; }
         await DS.AddWordAsync(W);
         W = new();
+        TypeHint = "Nhập xong từ tiếng Anh để tự nhận diện; bạn vẫn có thể chọn lại.";
+        TypeManuallySelected = false;
         Ok = true;
         await Task.Delay(2000);
         Ok = false;

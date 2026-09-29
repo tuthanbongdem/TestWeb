@@ -22,7 +22,7 @@ public class Word
     public string English { get; set; } = "";
     public string Phonetic { get; set; } = "";
     public string Vietnamese { get; set; } = "";
-    public WordType Type { get; set; }
+    public WordType Type { get; set; } = WordType.Other;
     public string Example { get; set; } = "";
     public int Mastery { get; set; }      // 0-5
     public bool Favorite { get; set; }
