@@ -1,4 +1,4 @@
-# 📚 VocabVault v3 – Blazor + Supabase Cloud
+# 📚 VocabFlow – Blazor + Supabase Cloud
 
 Data lưu trên **Supabase** (PostgreSQL cloud) — mọi máy, mọi lúc đều thấy cùng data!
 
@@ -17,7 +17,7 @@ Data lưu trên **Supabase** (PostgreSQL cloud) — mọi máy, mọi lúc đề
 
 ## ⚙️ BƯỚC 2 — Điền key vào code
 
-Mở `VocabVault2/Services/SupabaseConfig.cs`:
+Mở `Vocabulary/Services/SupabaseConfig.cs`:
 
 ```csharp
 public const string Url = "https://YOURPROJECT.supabase.co";
@@ -28,7 +28,7 @@ public const string Key = "eyJ...";
 
 ## 🚀 BƯỚC 3 — Chạy hoặc Deploy
 
-**Local:** Mở `VocabVault2.sln` → F5
+**Local:** Mở `Vocabulary.sln` → F5
 
 **Render:** `git add . && git commit -m "Supabase" && git push`
 
