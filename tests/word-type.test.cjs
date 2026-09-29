@@ -76,3 +76,17 @@ test('a stalled dictionary request stops and leaves manual classification availa
     assert.deepEqual(Array.from(await lookup('beautiful')), ['Other']);
     assert.equal(aborted, true);
 });
+
+test('uses a second dictionary when the first is unavailable for intriguing', async () => {
+    const lookup = lookupWith(async url => {
+        if (url.includes('dictionaryapi.dev')) throw new Error('dictionary unavailable');
+        if (url === 'https://api.datamuse.com/words?sp=intriguing&md=p&max=1') {
+            return { ok: true, json: async () => [
+                { word: 'intriguing', score: 323097, tags: ['adj', 'n'] }
+            ] };
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    assert.deepEqual(Array.from(await lookup('Intriguing')), ['Adj', 'Noun']);
+});
